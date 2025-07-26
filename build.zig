@@ -6,10 +6,14 @@ pub fn build(b: *std.Build) void {
 
     const upstream = b.dependency("openssl", .{});
 
-    const lib = b.addStaticLibrary(.{
+    const lib = b.addLibrary(.{
         .name = "openssl",
-        .target = target,
-        .optimize = optimize,
+        .linkage = .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
     });
 
     const ssl_dir_flag = switch (target.result.os.tag) {
@@ -55,7 +59,7 @@ pub fn build(b: *std.Build) void {
         "-DX25519_ASM",
     };
 
-    lib.addCSourceFiles(.{
+    lib.root_module.addCSourceFiles(.{
         .root = upstream.path("ssl"),
         .files = &.{
             "bio_ssl.c",
@@ -156,7 +160,7 @@ pub fn build(b: *std.Build) void {
         .flags = &base_flags,
     });
 
-    lib.addCSourceFiles(.{
+    lib.root_module.addCSourceFiles(.{
         .root = upstream.path("providers"),
         .files = &.{
             //"legacyprov.c",
@@ -357,7 +361,7 @@ pub fn build(b: *std.Build) void {
         .flags = &base_flags,
     });
 
-    lib.addCSourceFiles(.{
+    lib.root_module.addCSourceFiles(.{
         .root = b.path("providers"),
         .files = &.{
             "common/der/der_digests_gen.c",
@@ -371,7 +375,7 @@ pub fn build(b: *std.Build) void {
         .flags = &base_flags,
     });
 
-    lib.addCSourceFiles(.{
+    lib.root_module.addCSourceFiles(.{
         .root = upstream.path("crypto"),
         .files = &.{
             //"LPdir_nyi.c",
@@ -1189,7 +1193,7 @@ pub fn build(b: *std.Build) void {
     });
 
     switch (target.result.cpu.arch) {
-        .x86_64 => lib.addCSourceFiles(.{
+        .x86_64 => lib.root_module.addCSourceFiles(.{
             .root = b.path("crypto"),
             .files = &.{
                 "aes/aes-x86_64.s",
@@ -1235,7 +1239,7 @@ pub fn build(b: *std.Build) void {
         else => {},
     }
 
-    lib.addCSourceFiles(.{
+    lib.root_module.addCSourceFiles(.{
         .root = b.path("crypto"),
         .files = &.{
             "params_idx.c",
@@ -1243,16 +1247,15 @@ pub fn build(b: *std.Build) void {
         .flags = &crypto_flags,
     });
 
-    lib.addIncludePath(upstream.path("."));
-    lib.addIncludePath(upstream.path("include"));
-    lib.addIncludePath(b.path("include"));
-    lib.addIncludePath(upstream.path("providers/common/include"));
-    lib.addIncludePath(upstream.path("providers/implementations/include"));
-    lib.addIncludePath(b.path("crypto"));
+    lib.root_module.addIncludePath(upstream.path("."));
+    lib.root_module.addIncludePath(upstream.path("include"));
+    lib.root_module.addIncludePath(b.path("include"));
+    lib.root_module.addIncludePath(upstream.path("providers/common/include"));
+    lib.root_module.addIncludePath(upstream.path("providers/implementations/include"));
+    lib.root_module.addIncludePath(b.path("crypto"));
 
     lib.installHeadersDirectory(upstream.path("include"), "", .{});
     lib.installHeadersDirectory(b.path("include"), "", .{});
 
-    lib.linkLibC();
     b.installArtifact(lib);
 }
